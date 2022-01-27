@@ -1,0 +1,81 @@
+properties([
+    parameters([
+        [
+            $class: 'CascadeChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
+            description: 'Select a Region from the Dropdown List',
+            visibleItemCount: 10,
+            randomName: 'choice-parameter-50980967122105',
+            name: 'Regions',
+            script: [
+                $class: 'GroovyScript',
+                fallbackScript: [
+                    classpath: [],
+                    sandbox: false,
+                    script: """"""
+                ],
+                script: [
+                    classpath: [],
+                    sandbox: false,
+                    script: '''try {
+                    def command = "aws ec2 describe-regions --all-regions --query Regions[].{Name:RegionName} --output text --region us-west-2"
+                    def output = command.execute()
+                    output.waitFor()
+                    def error = output.err.text
+                    def regions = output.text.tokenize().toUnique()
+                    if (error) {
+                        return ["None"]
+                    } else {
+                        return regions
+                    }
+                } catch (Exception e) {
+                    return ["None"]
+                }'''.stripIndent()
+                ]
+            ]
+        ],
+        [$class: 'CascadeChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
+            description: 'Select one or more Instances from the Dropdown List',
+            randomName: 'choice-parameter-10930967122105',
+            visibleItemCount: 20,
+            referencedParameters: 'Regions',
+            name: 'Instances',
+            script: [
+                $class: 'GroovyScript',
+                fallbackScript: [
+                    classpath: [],
+                    sandbox: false,
+                    script: """return ["ERROR"]"""
+                    ],
+                script: [
+                    classpath: [],
+                    sandbox: false,
+                    script:
+                    '''  try {
+                        if (binding.variables.get('Regions')!=null) {
+                            def selected_region = binding.variables.get('Regions')
+                            def command = "aws ec2 describe-instances --filter Name=tag:Name,Values=* --region "+ selected_region + " --query Reservations[].Instances[].[Tags[?Key=='Name'].Value] --output text"
+                            def output = command.execute()
+                            output.waitFor()
+                            def error = output.err.text
+                           def instances = output.text.tokenize().toUnique()
+                            if (error) {
+                              return ["None"]
+                              }
+                           else if (instances.size() == 0 ){
+                           return ["None"]
+                            }
+
+                             else {
+                            return instances
+                            } 
+                         } else {
+                            return ["None"]
+                        }
+                    } catch (Exception e) {
+                        return ["ERROR"]
+                    } '''               
+                     ]
+            ]
+        ]
